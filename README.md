@@ -38,7 +38,7 @@ This new use of the memory has four characteristics:
 1. It has the same total length (in bytes) as the orginal memory structure. 
 2. The function's arguments are used to inject malicious code and to overwrite the instruction pointer. (Thus, the malicous code must be smaller than the function's arguments and the memory dedicated to the "boring stuff"). 
 3. The new pointer references the memory address where the malicious code is written. 
-4. The malicious code is surrounded by "padding". Padding is concetpually useless, but it acts as a practical buffer for memory glitches (or errors in calculations!).  
+4. The malicious code is surrounded by "padding". Padding is conceptually useless, but it acts as a practical buffer for memory glitches (or errors in calculations!).  
 
 Thus, when the function ends and the `ret` instruction is called, the code flow is redirected to the malicious code. 
 
@@ -93,7 +93,7 @@ The memory at this point is illustrated in the picture below. Although this is a
 ![figure-3.png](figure-3.png)
 
 Notice that the partition containing the function's arguments is almost empty. It begins with "doggoBBBB" and is then filled with a bunch of zeros. This is because the function's argument ("BBBB") is well within the buffer size of the function. The word "doggo" is present in memory
-because the chosen breaking point is at the end of the function's instructions. As such, it is after the string concatenation of the function's arguments and the string "doggo". The "boring stuff" in memory is nothing but the register base pointer (rbp in the registery), which has the value `90e3 ffff ff7f 0000`. Since the notation is in little indian, it means that the saved registery is `0x00007fffffffe309`. Finally, the saved instruction pointer has the value `ce05 4000 0000 0000`, or `0x00000000004005ce`, which is nothing but the adress
+because the chosen breaking point is at the end of the function's instructions. As such, it is after the string concatenation of the function's arguments and the string "doggo". The "boring stuff" in memory is nothing but the register base pointer (rbp in the registery), which has the value `90e3 ffff ff7f 0000`. Since the notation is in little indian, it means that the saved registery is `0x00007fffffffe309`. Finally, the saved instruction pointer has the value `ce05 4000 0000 0000`, or `0x00000000004005ce`, which is nothing but the adress of the instruction following the `call sym.concat_arg` instruction.
 
 To sum up, our examination of the function's memory shows the following content: 
 
