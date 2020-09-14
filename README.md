@@ -1,13 +1,13 @@
 # Walkthrough for the Buffer Overflow Room - Task 8
-I find simple recipes to be completely meaningless. There is no point in reading a set of instructions to complete a room if you do not understand what they mean. Hence the section below. 
+This write-up explains the basics of buffer overflows and how it applies to Task 8. 
 
-## What you should know
+## Concepts you should know before tackling the room
 You should be able to...
 1. distinguish concepts such as a stack, a frame and a heap; 
 2. understand C programs and in particular, what are pointer objects. 
-3. have a decent understanding of the assembly language. 
-4. understand the basic commands of a decompiler (`r2` or `gdb`, on Kali): set breaking points, read registers and a particuler adress in memory. 
-4. understand what assembly instructions like `call` and `ret` perform in the backend. 
+3. have a decent understanding of the Assembly language. 
+4. understand the basic commands of a decompiler (`r2` or `gdb`, on Kali): set breaking points (`db`), read registers (`dr`) and a particuler adress in memory (`px @`). 
+4. understand what Assembly instructions like `call` and `ret` perform in the backend. 
 
 ### Great readings/challenges to help you achieve that:
 1. Intro to assembly and r2: the THM room on [x86-assembly](https://tryhackme.com/room/introtox8664).
@@ -18,20 +18,20 @@ You should be able to...
 
 ### Buffer overflow exploits in a nutshell. 
 
-Think of the memory used by a particular function as a segment: 
+Think of the memory used by a function as a segment of the real line: 
 ```
-\[                             Memory dedicated to the function                             \].
+[                             Memory dedicated to the function                             ].
 ```
-For our purpose, you can think of this segment as three distinct partitions: 
+For our purpose, you can think of this segment as having three distinct partitions: 
 ```
-\[     Function's arguments      \]\[   boring stuff   \]\[   Instruction pointer's value   \].
+[     Function's arguments      ][   boring stuff   ][     Instruction pointer's value     ].
 ```
 The **instruction pointer** indicates where the flow of the program should resume once the function is finished. The **goal** of a buffer overflow exploit is to change its value so that it points towards malicious code (the exploit). This can be done by providing large enough values of the function's arguments so that it _overflows_ (overwrites) the instruction pointer. Before the function ends (e.g. before the `ret` call), the memory should look like this: 
 ```
-\[   padding   \]\[   malicious code   \]\[   padding   \]\[   New Instruction pointer      \].
-                  ^                                                      |
-                  |                                                      |
-                  ----------<------------points to----------<-------------
+[    padding    ][   malicious code   ][   padding   ][     New Instruction pointer        ].
+                 ^                                                      |
+                 |                                                      |
+                 ----------<------------points to----------<-------------
 ```
 This new use of the memory has four characteristics: 
 
@@ -42,7 +42,7 @@ This new use of the memory has four characteristics:
 
 Thus, when the function ends and the `ret` instruction is called, the code flow is redirected to the malicious code. 
 
-Conceptually, it is simple as that. 
+Conceptually, it is as simple as that. 
 
 In order to execute the exploit, we need to achieve the following things: 
 
@@ -82,15 +82,15 @@ We explain the highlights of these instructions in the following paragraph.
 
 The assembly code of the `main` function is shown below. One should notice that the memory adress of the instruction right after the `call sys.concat_arg` is `0x004005ce`. Given our simple explanation of how a the memory of a function works, this is the adresse that should be in the instruction pointer's value once the function `concat_arg` is called. 
 
-<<--- insert picture 1 -- >>
+![figure-1.png](figure-1.png)
 
 The assembly code of the `concat_arg` function is shown below. Notice that we have introduced a breaking point at the instruction `NOP` (adress `0x004005a9`). This instruction is particularly interesting, as it will allow us to see the content of the memory just before the `ret` instruction is performed. 
 
-<<--- insert picture 2 -- >>
+![figure-2.png](figure-2.png)
 
 The memory at this point is illustrated in the picture below. Although this is a "rectangular" shaped representation of the memory, it can be reorganised to fit the model we have presented above. 
 
-<<--- insert picture 3 -- >>
+![figure-3.png](figure-3.png)
 
 Notice that the partition containing the function's arguments is almost empty. It begins with "doggoBBBB" and is then filled with a bunch of zeros. This is because the function's argument ("BBBB") is well within the buffer size of the function. The word "doggo" is present in memory
 because the chosen breaking point is at the end of the function's instructions. As such, it is after the string concatenation of the function's arguments and the string "doggo". The "boring stuff" in memory is nothing but the register base pointer (rbp in the registery), which has the value `90e3 ffff ff7f 0000`. Since the notation is in little indian, it means that the saved registery is `0x00007fffffffe309`. Finally, the saved instruction pointer has the value `ce05 4000 0000 0000`, or `0x00000000004005ce`, which is nothing but the adress
@@ -126,7 +126,7 @@ dc
 ```
 This code goes through the same motions as in the previous section, but this time with a program input that has 155 consecutive A's followed by six B's (BBBBBB). This input overflows the intended buffer of function `concat_arg`. A quick examination of the memory right before the `ret` instruction is called shows the following content: 
 
-<<--- insert picture 4 -- >>
+![figure-4.png](figure-4.png)
 
 This content means, in turn, the following memory model: 
 ```
@@ -151,8 +151,8 @@ The general strategy is very well explained in [L1ges write-up](https://l1ge.git
     $pwn shellcraft -f d amd64.linux.setreuid 1002
     ```
     (You however need to change **one** alphanumeric character from this command to actually adapt it to task 8). 
-- Use the hex code that the command spits to prepend the binary shell code provided in L1ge's write-up. You should get something like: 
-   Craft the malicious code   ```
+- Use the hex code that the command spits to prepend the binary shell code provided in L1ge's write-up. You should get something like:   
+   ```
   \x31\xff\x66\xbf\xea\x03\x6a\x71\x58\x48\x89\xfe\x0f\x05\x6a\x3b\x58\x48\x31\xd2\x49\xb8\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x49\xc1\xe8\x08\x41\x50\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05\x6a\x3c\x58\x48\x31\xff\x0f\x05
     ```
     (Again, with ***one** hexadecimal incorrectly specified)
@@ -182,6 +182,6 @@ For this command to function:
 
 With the proper modifications, one can get a sweet, sweet shell: 
 
-<<--- insert picture 5 -- >>
+![figure-5.png](figure-5.png)
 
 Enjoy! 
